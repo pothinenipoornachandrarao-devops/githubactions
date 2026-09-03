@@ -1,0 +1,24 @@
+name: Test Azure VM Runner
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  test-azure-runner:
+    name: Run on Azure VM
+    runs-on: [self-hosted, ubuntuvm]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify VM Host Info
+        run: |
+          echo "Hello from GitHub Actions running on Azure VM!"
+          echo "Runner Name : ${{ runner.name }}"
+          echo "Hostname    : $(hostname)"
+          echo "Current User: $(whoami)"
+          echo "Current Dir : $(pwd)"
+          echo "OS Details  : $(uname -a)"
