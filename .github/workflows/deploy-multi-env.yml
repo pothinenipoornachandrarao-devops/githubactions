@@ -1,0 +1,44 @@
+name: Manual Multi-Environment Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Choose target deployment environment'
+        required: true
+        type: choice
+        default: 'development'
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.target_env }}
+    runs-on: [self-hosted, ubuntuvm]
+    
+    # Binds the job to the selected environment settings and protection rules
+    environment: ${{ inputs.target_env }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Display Active Environment Context
+        run: |
+          echo "Current Target Environment: ${{ inputs.target_env }}"
+          echo "Runner Name: ${{ runner.name }}"
+
+      - name: Deploy Application Container
+        run: |
+          # Use environment variables configured under Settings -> Environments
+          echo "Deploying container for ${{ inputs.target_env }}..."
+          docker stop demo-app-${{ inputs.target_env }} || true
+          docker rm demo-app-${{ inputs.target_env }} || true
+          
+          docker run -d \
+            --name demo-app-${{ inputs.target_env }} \
+            --restart always \
+            -p 3000:3000 \
+            demo-web-app:latest
