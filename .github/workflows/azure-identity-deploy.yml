@@ -1,0 +1,34 @@
+name: Deploy Using VM Managed Identity
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  azure-identity-job:
+    name: Run Azure Commands via Managed Identity
+    # Must target your self-hosted Azure VM runner
+    runs-on: [self-hosted, ubuntuvm]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Logs in automatically by contacting the Azure IMDS endpoint on the VM
+      - name: Azure Login with Managed Identity
+        uses: azure/login@v2
+        with:
+          auth-type: IDENTITY
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Authentication Context
+        run: |
+          echo "Current logged-in identity:"
+          az account show -o table
+
+      - name: Create or Manage Resources
+        run: |
+          echo "Listing Resource Groups:"
+          az group list -o table
