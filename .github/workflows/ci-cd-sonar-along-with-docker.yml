@@ -1,0 +1,74 @@
+name: CI (Test & SonarQube) + CD (Azure VM Deployment)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # =================================================================
+  # STAGE 1: Run tests and SonarQube on GitHub-Hosted Ubuntu runner
+  # =================================================================
+  test-and-scan:
+    name: Unit Tests & SonarQube Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code (Full History for Sonar)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Unit Tests & Generate LCOV Coverage
+        run: npm test
+
+      - name: SonarQube / SonarCloud Scan
+        uses: sonarsource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  # =================================================================
+  # STAGE 2: Deploy to Self-Hosted Azure VM Runner
+  # =================================================================
+  deploy-to-azure-vm:
+    name: Deploy to Local Azure VM
+    needs: [test-and-scan]
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, ubuntuvm]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image on Azure VM
+        run: |
+          docker build -t node-demo-app:latest .
+
+      - name: Stop and Remove Existing Container
+        run: |
+          docker rm -f node-demo-app || true
+
+      - name: Run New Container on Azure VM
+        run: |
+          docker run -d \
+            --name node-demo-app \
+            --restart always \
+            -p 3000:3000 \
+            node-demo-app:latest
+
+      - name: Validate Local Service Health
+        run: |
+          sleep 5
+          curl -f http://localhost:3000/health || (echo "Deployment health check failed" && exit 1)
