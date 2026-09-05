@@ -1,0 +1,49 @@
+name: Parallel Jobs on Azure VMSS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # =================================================================
+  # Scenario A: Parallel Matrix Jobs (Runs 3 jobs concurrently)
+  # =================================================================
+  parallel-test-suites:
+    name: Run Suite (${{ matrix.suite }})
+    runs-on: [self-hosted, vmss-runner]
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unit-tests, integration-tests, security-audit]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Suite Task
+        run: |
+          echo "Executing ${{ matrix.suite }} on $(hostname) via Docker"
+          docker --version
+          if [ "${{ matrix.suite }}" == "unit-tests" ]; then
+            npm install && npm test
+          elif [ "${{ matrix.suite }}" == "integration-tests" ]; then
+            echo "Running simulated integration suite..."
+            sleep 10
+          elif [ "${{ matrix.suite }}" == "security-audit" ]; then
+            npm audit || true
+          fi
+
+  # =================================================================
+  # Scenario B: Independent Parallel Pipeline Job
+  # =================================================================
+  independent-docker-build:
+    name: Parallel Docker Image Build
+    runs-on: [self-hosted, vmss-runner]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Standalone Image
+        run: |
+          echo "Building image in parallel on $(hostname)"
+          docker build -t node-demo-app:test-parallel .
