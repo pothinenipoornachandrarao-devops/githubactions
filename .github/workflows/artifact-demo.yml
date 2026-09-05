@@ -1,8 +1,6 @@
 name: Artifact Upload and Download Demo
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
