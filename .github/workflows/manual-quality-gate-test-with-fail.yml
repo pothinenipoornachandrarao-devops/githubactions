@@ -1,0 +1,55 @@
+name: Manual Quality Gate Failure Demo
+
+on:
+  workflow_dispatch: # Strictly manual trigger
+
+jobs:
+  test-and-scan:
+    name: Scan and Enforce Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code (Full History)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Unit Tests
+        # Executes existing Jest tests; flawed-service.js will have 0% coverage
+        run: npm test
+
+      - name: SonarQube Cloud Scan
+        uses: sonarsource/sonarqube-scan-action@v3
+        with:
+          args: >
+            -Dsonar.sources=server.js,flawed-service.js
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Blocks the pipeline here if SonarCloud reports FAILED status
+      - name: Check SonarQube Quality Gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  deploy-to-production:
+    name: Deploy to Production VM
+    needs: [test-and-scan]
+    runs-on: [self-hosted, ubuntuvm]
+    environment:
+      name: production
+
+    steps:
+      - name: Blocked Step Check
+        run: |
+          echo "This deployment step will be cancelled due to the upstream Quality Gate failure."
